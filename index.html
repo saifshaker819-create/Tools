@@ -17,6 +17,118 @@
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
   <link rel="shortcut icon" href="favicon.ico">
 
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAUW1D0O6wuI0XFJ-DgIxq75DV-bt5Q3yw",
+    authDomain: "holidays-23658.firebaseapp.com",
+    projectId: "holidays-23658",
+    storageBucket: "holidays-23658.firebasestorage.app",
+    messagingSenderId: "709380474412",
+    appId: "1:709380474412:web:1277c851d70eec1a7fb389",
+    measurementId: "G-RQ7T5S1EQ6"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const fsdb = firebase.firestore();
+
+  // ==================== FIREBASE SYNC ====================
+  // المزامنة تعمل في الخلفية — IDB هو المصدر الأساسي للسرعة
+
+  let fbSyncEnabled = false; // يُفعَّل بعد تسجيل الدخول
+
+  async function fbPut(collection, obj) {
+    if (!fbSyncEnabled) return;
+    try {
+      await fsdb.collection(collection).doc(String(obj.id)).set(obj);
+    } catch(e) { console.warn('Firebase write failed:', e.message); }
+  }
+
+  async function fbDelete(collection, id) {
+    if (!fbSyncEnabled) return;
+    try {
+      await fsdb.collection(collection).doc(String(id)).delete();
+    } catch(e) { console.warn('Firebase delete failed:', e.message); }
+  }
+
+  // مزامنة كاملة: Firebase → IDB (عند أول دخول أو طلب تحديث)
+  async function syncFromFirebase() {
+    try {
+      showSyncStatus('جاري المزامنة مع السحابة...', 'blue');
+
+      const [facSnap, leavSnap] = await Promise.all([
+        fsdb.collection('faculty').get(),
+        fsdb.collection('leaves').get()
+      ]);
+
+      const fbFaculty = facSnap.docs.map(d => d.data());
+      const fbLeaves  = leavSnap.docs.map(d => d.data());
+
+      if (fbFaculty.length === 0 && fbLeaves.length === 0) {
+        // Firebase فارغ → ارفع البيانات المحلية إليه
+        await pushLocalToFirebase();
+        showSyncStatus('✅ تم رفع البيانات المحلية إلى السحابة', 'green');
+        return;
+      }
+
+      // Firebase فيه بيانات → استبدل المحلي بها
+      const allLocalFac = await dbAll('faculty');
+      const allLocalLeav = await dbAll('leaves');
+      for (const f of allLocalFac)  await dbDelete('faculty', f.id);
+      for (const l of allLocalLeav) await dbDelete('leaves', l.id);
+      for (const f of fbFaculty)    await dbPut('faculty', f);
+      for (const l of fbLeaves)     await dbPut('leaves', l);
+
+      faculty = await dbAll('faculty');
+      leaves  = await dbAll('leaves');
+
+      renderDashboard();
+      renderFacultyList();
+      populateFilters();
+
+      showSyncStatus(`✅ تمت المزامنة — ${fbFaculty.length} موظف، ${fbLeaves.length} سجل`, 'green');
+    } catch(e) {
+      showSyncStatus('⚠️ تعذرت المزامنة — يعمل محلياً', 'orange');
+      console.warn('Sync error:', e.message);
+    }
+  }
+
+  async function pushLocalToFirebase() {
+    try {
+      const allFac  = await dbAll('faculty');
+      const allLeav = await dbAll('leaves');
+      const batch_size = 400;
+      // faculty
+      for (let i = 0; i < allFac.length; i += batch_size) {
+        const batch = fsdb.batch();
+        allFac.slice(i, i + batch_size).forEach(f => {
+          batch.set(fsdb.collection('faculty').doc(String(f.id)), f);
+        });
+        await batch.commit();
+      }
+      // leaves
+      for (let i = 0; i < allLeav.length; i += batch_size) {
+        const batch = fsdb.batch();
+        allLeav.slice(i, i + batch_size).forEach(l => {
+          batch.set(fsdb.collection('leaves').doc(String(l.id)), l);
+        });
+        await batch.commit();
+      }
+    } catch(e) { console.warn('Push error:', e.message); }
+  }
+
+  function showSyncStatus(msg, type) {
+    let el = document.getElementById('sync-status-bar');
+    if (!el) return;
+    const colors = { green:'#10b981', orange:'#f59e0b', blue:'#6366f1', red:'#ef4444' };
+    el.style.display = 'flex';
+    el.style.borderColor = colors[type] || colors.blue;
+    el.querySelector('#sync-msg').textContent = msg;
+    if (type === 'green') setTimeout(() => { el.style.display = 'none'; }, 4000);
+  }
+</script>
+
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -436,6 +548,32 @@
   .half-salary-row { background:rgba(245,158,11,0.07) !important; }
   .half-salary-row td { color:#000 !important; font-weight:600; }
 
+  /* ===== SYNC STATUS BAR ===== */
+  #sync-status-bar {
+    display: none;
+    position: fixed;
+    top: 52px; right: var(--sidebar-w); left: 0;
+    z-index: 79;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 2px solid #6366f1;
+    padding: 7px 20px;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #000;
+  }
+  #sync-status-bar .sync-spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(99,102,241,0.3);
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   /* ===== LOGIN SCREEN ===== */
   #login-screen {
     position: fixed; inset: 0; z-index: 9000;
@@ -592,8 +730,16 @@
     <div class="topbar-avatar" id="topbar-avatar-letter">A</div>
     <span id="topbar-username">—</span>
   </div>
+  <button class="btn btn-outline btn-sm" onclick="syncFromFirebase()" title="مزامنة مع السحابة" style="gap:6px;">☁️ مزامنة</button>
   <button class="btn btn-outline btn-sm" onclick="openChangePassword()" title="تغيير كلمة المرور" style="gap:6px;">🔒 تغيير الرمز السري</button>
   <button class="btn btn-outline btn-sm" onclick="doLogout()" style="color:var(--red);border-color:rgba(239,68,68,0.25);">🚪 خروج</button>
+</div>
+
+<!-- ===== SYNC STATUS BAR ===== -->
+<div id="sync-status-bar">
+  <div class="sync-spinner"></div>
+  <span id="sync-msg">جاري المزامنة...</span>
+  <button onclick="document.getElementById('sync-status-bar').style.display='none'" style="margin-right:auto;background:none;border:none;cursor:pointer;font-size:14px;color:#64748b;">✕</button>
 </div>
 
 <!-- ===== ACTIVITY LOG PANEL ===== -->
@@ -1409,7 +1555,11 @@ function dbPut(store, obj) {
   return new Promise((res, rej) => {
     const tx = db.transaction(store,'readwrite');
     const req = tx.objectStore(store).put(obj);
-    req.onsuccess = () => res();
+    req.onsuccess = () => {
+      // مزامنة Firebase في الخلفية (فقط faculty و leaves)
+      if (store === 'faculty' || store === 'leaves') fbPut(store, obj);
+      res();
+    };
     req.onerror = () => rej();
   });
 }
@@ -1417,7 +1567,10 @@ function dbDelete(store, id) {
   return new Promise((res, rej) => {
     const tx = db.transaction(store,'readwrite');
     const req = tx.objectStore(store).delete(id);
-    req.onsuccess = () => res();
+    req.onsuccess = () => {
+      if (store === 'faculty' || store === 'leaves') fbDelete(store, id);
+      res();
+    };
     req.onerror = () => rej();
   });
 }
@@ -2641,6 +2794,8 @@ async function importDatabase(input) {
           renderDbInfo();
           showToast(`✅ تم استيراد ${faculty.length} موظف و${leaves.length} سجل بنجاح`, 'green');
           await logActivity(`⬆️ استيراد قاعدة بيانات: ${faculty.length} موظف`, 'orange');
+          // رفع البيانات المستوردة إلى Firebase
+          if (fbSyncEnabled) { showSyncStatus('جاري رفع البيانات إلى السحابة...','blue'); await pushLocalToFirebase(); showSyncStatus('✅ تم رفع البيانات إلى السحابة','green'); }
         } catch(err) { showToast('❌ حدث خطأ أثناء الاستيراد', 'red'); }
       });
     } catch(err) { showToast('❌ تعذر قراءة الملف', 'red'); }
@@ -3495,7 +3650,10 @@ async function doLogin() {
     document.getElementById('activity-panel-username').textContent = '👤 ' + user;
     try { await logActivity('🔑 تسجيل الدخول إلى النظام','green'); } catch(e){}
     try { await renderActivityList(); } catch(e){}
-    init();
+    await init();
+    // تفعيل المزامنة بعد تحميل البيانات المحلية
+    fbSyncEnabled = true;
+    syncFromFirebase(); // لا await — تعمل في الخلفية
   } else {
     errEl.style.display = 'block';
     document.getElementById('login-pass').value = '';
@@ -3505,6 +3663,7 @@ async function doLogin() {
 
 async function doLogout() {
   await logActivity('🚪 تسجيل الخروج من النظام', 'red');
+  fbSyncEnabled = false;
   currentUser = null;
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('user-topbar').style.display = 'none';
