@@ -1666,7 +1666,7 @@ function getBalance(facultyId, year) {
   const normalUsed    = fl.filter(l=>l.type==='normal').reduce((s,l)=>s+l.days,0);
   const normalRefund  = fl.filter(l=>l.type==='normal-refund').reduce((s,l)=>s+l.days,0);
   const exceptionAdd  = fl.filter(l=>l.type==='exception').reduce((s,l)=>s+l.days,0);
-  // خصم الإجازات الزمنية المتراكمة (كل 7 ساعات = يوم)
+  // تتبع الساعات الزمنية فقط للعرض (الاستقطاع يتم عبر سجلات normal تلقائياً في saveHourlyLeave)
   const hourlyUsedHours = fl.filter(l=>l.type==='hourly').reduce((s,l)=>s+(l.hours||0),0);
   const hourlyDeductDays = Math.floor(hourlyUsedHours / 7);
   // مرضية
@@ -1674,13 +1674,13 @@ function getBalance(facultyId, year) {
   const sickManualAdd = fl.filter(l=>l.type==='manual-sick-add').reduce((s,l)=>s+l.days,0);
   const sickManualSub = fl.filter(l=>l.type==='manual-sick-sub').reduce((s,l)=>s+l.days,0);
 
-  const normalBalance = nd + exceptionAdd - normalUsed + normalRefund - hourlyDeductDays;
+  const normalBalance = nd + exceptionAdd - normalUsed + normalRefund;
   const sickBalance   = SICK_DAYS + sickManualAdd - sickManualSub - sickUsed;
 
   return {
     normal:     normalBalance,
     sick:       sickBalance,
-    normalUsed: Math.max(0, normalUsed - normalRefund + hourlyDeductDays),
+    normalUsed: Math.max(0, normalUsed - normalRefund),
     sickUsed,
     normalDays: nd + exceptionAdd,
     hourlyUsedHours,
