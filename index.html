@@ -434,6 +434,8 @@
 
   .half-salary-row { background:rgba(245,158,11,0.07) !important; }
   .half-salary-row td { color:#000 !important; font-weight:600; }
+  .badge-teal { background:rgba(20,184,166,0.1); color:#0d9488; }
+  .half-salary-row td { color:#000 !important; font-weight:600; }
 
   /* ===== LOGIN SCREEN ===== */
   #login-screen {
@@ -813,6 +815,8 @@
               <option value="postbirth">بعد الوضع</option>
               <option value="maternity">إجازة أمومة</option>
               <option value="maternity-ext">تمديد أمومة</option>
+              <option value="hourly">زمنية (ساعات)</option>
+              <option value="hourly-deduct">استقطاع زمني → اعتيادي</option>
             </select>
           </div>
           <div class="filter-item">
@@ -1014,6 +1018,20 @@
         <label class="form-label">رصيد تراكمي أولي (أيام)</label>
         <input class="form-input" id="f-cumulative" type="number" min="0" value="0">
       </div>
+      <div class="form-group">
+        <label class="form-label">رصيد مرضي تراكمي أولي (أيام)</label>
+        <input class="form-input" id="f-sick-cumulative" type="number" min="0" value="0" placeholder="الأيام المرضية التراكمية المتراكمة">
+      </div>
+      <div class="form-group">
+        <label class="form-label">حالة الموظف</label>
+        <select class="form-select" id="f-status" onchange="onFacultyStatusChange()">
+          <option value="active">مستمر ✅</option>
+          <option value="seconded">منسب 🔄</option>
+        </select>
+      </div>
+    </div>
+    <div id="f-status-info" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);font-size:13px;color:#92400e;font-weight:600;">
+      ⚠️ الموظف المنسب لا يكون له أي رصيد اعتيادي أو تراكمي أو مرضي.
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-primary" onclick="saveFaculty()">💾 حفظ</button>
@@ -1191,6 +1209,44 @@
     <div class="modal-footer">
       <button class="btn" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 14px rgba(99,102,241,0.3);" onclick="saveStudyLeave()">💾 تسجيل الإجازة الدراسية</button>
       <button class="btn btn-outline" onclick="closeModal('modal-study-leave')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Hourly Leave Modal -->
+<div class="modal-overlay" id="modal-hourly-leave">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">⏰ إضافة إجازة زمنية (ساعات)</div>
+      <button class="modal-close" onclick="closeModal('modal-hourly-leave')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">تاريخ الإجازة *</label>
+        <input class="form-input" id="hl-date" type="date" oninput="updateHourlyInfo()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">وقت البداية *</label>
+        <input class="form-input" id="hl-start-time" type="time" oninput="updateHourlyInfo()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">عدد الساعات *</label>
+        <input class="form-input" id="hl-hours" type="number" min="0.5" max="24" step="0.5" placeholder="مثال: 2 أو 3.5" oninput="updateHourlyInfo()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">السنة الدراسية</label>
+        <select class="form-select" id="hl-year"></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ملاحظات</label>
+      <input class="form-input" id="hl-notes" placeholder="ملاحظات إضافية (اختياري)">
+    </div>
+    <div id="hl-info-box" style="padding:12px 16px;border-radius:10px;background:rgba(20,184,166,0.07);border:1px solid rgba(20,184,166,0.2);font-size:13px;margin-bottom:4px;display:none;"></div>
+    <div class="modal-footer">
+      <button class="btn" style="background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;box-shadow:0 4px 14px rgba(13,148,136,0.3);" onclick="saveHourlyLeave()">💾 تسجيل الإجازة الزمنية</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-hourly-leave')">إلغاء</button>
     </div>
   </div>
 </div>
@@ -1416,6 +1472,8 @@ function dbSetSetting(key, value) {
 }
 
 // ==================== STATE ====================
+// Hourly leave constants
+const HOURS_PER_DAY_DEDUCT = 7; // كل 7 ساعات تراكمية = يوم اعتيادي
 let faculty = [];
 let leaves = [];
 let currentFacultyId = null;
@@ -1642,6 +1700,9 @@ function leaveTypeBadge(t) {
     'maternity-cut':'<span class="badge badge-gray" style="background:rgba(100,116,139,0.12);color:#475569;">✂️ قطع إجازة أمومة</span>',
     'manual-sick-add':'<span class="badge badge-gray" style="background:rgba(16,185,129,0.1);color:#059669;">➕ إضافة مرضية (يدوي)</span>',
     'manual-sick-sub':'<span class="badge badge-gray" style="background:rgba(239,68,68,0.1);color:#dc2626;">➖ خصم مرضية (يدوي)</span>',
+    'hourly':       '<span class="badge badge-teal">⏰ إجازة زمنية</span>',
+    'hourly-deduct':'<span class="badge badge-teal" style="background:rgba(245,158,11,0.1);color:#d97706;">⏱️ استقطاع زمني→اعتيادي</span>',
+    'sick-cum-deduct':'<span class="badge badge-gray" style="background:rgba(239,68,68,0.08);color:#dc2626;">🏥 مرضي تراكمي</span>',
   };
   return map[t] || `<span class="badge badge-gray">${t}</span>`;
 }
@@ -1649,21 +1710,36 @@ function leaveTypeBadge(t) {
 // ==================== BALANCES ====================
 function getBalance(facultyId, year) {
   const fac = faculty.find(f=>f.id===facultyId);
-  if (!fac) return {normal:0, sick:0, normalUsed:0, sickUsed:0, normalDays:NORMAL_DAYS};
+  if (!fac) return {normal:0, sick:0, normalUsed:0, sickUsed:0, normalDays:NORMAL_DAYS, sickCumBalance:0, hourlyAccumulated:0};
+  // منسب: لا رصيد
+  if (fac.status === 'seconded') {
+    return {normal:0, sick:0, normalUsed:0, sickUsed:0, normalDays:0, sickCumBalance:0, hourlyAccumulated:0};
+  }
   const nd = getNormalDays(facultyId);
   const fl = leaves.filter(l=>l.facultyId===facultyId && l.year===year);
+  const allLeaves = leaves.filter(l=>l.facultyId===facultyId);
 
-  // Aعتيادية
+  // اعتيادية
   const normalUsed    = fl.filter(l=>l.type==='normal').reduce((s,l)=>s+l.days,0);
   const normalRefund  = fl.filter(l=>l.type==='normal-refund').reduce((s,l)=>s+l.days,0);
   const exceptionAdd  = fl.filter(l=>l.type==='exception').reduce((s,l)=>s+l.days,0);
+  // استقطاع زمني من الاعتيادي (يُحتسب في كل السنوات)
+  const hourlyDeductAll = allLeaves.filter(l=>l.type==='hourly-deduct').reduce((s,l)=>s+l.days,0);
   // مرضية
   const sickUsed      = fl.filter(l=>l.type==='sick'||l.type==='half').reduce((s,l)=>s+l.days,0);
   const sickManualAdd = fl.filter(l=>l.type==='manual-sick-add').reduce((s,l)=>s+l.days,0);
   const sickManualSub = fl.filter(l=>l.type==='manual-sick-sub').reduce((s,l)=>s+l.days,0);
+  // مرضي تراكمي: الأولي + أي إضافات يدوية
+  const sickCumInitial = fac.initialSickCumulative || 0;
+  const sickCumUsed    = allLeaves.filter(l=>l.type==='sick-cum-deduct').reduce((s,l)=>s+l.days,0);
+  const sickCumBalance = Math.max(0, sickCumInitial - sickCumUsed);
 
-  const normalBalance = nd + exceptionAdd - normalUsed + normalRefund;
+  const normalBalance = nd + exceptionAdd - normalUsed + normalRefund - hourlyDeductAll;
   const sickBalance   = SICK_DAYS + sickManualAdd - sickManualSub - sickUsed;
+
+  // الساعات الزمنية المتراكمة (من كل السنوات) لاحتساب الاستقطاع القادم
+  const totalHours = allLeaves.filter(l=>l.type==='hourly').reduce((s,l)=>s+(l.hours||0),0);
+  const hourlyAccumulated = totalHours; // الإجمالي التراكمي للساعات
 
   return {
     normal:     normalBalance,
@@ -1671,12 +1747,16 @@ function getBalance(facultyId, year) {
     normalUsed: Math.max(0, normalUsed - normalRefund),
     sickUsed,
     normalDays: nd + exceptionAdd,
+    sickCumBalance,
+    hourlyAccumulated,
+    totalHoursAllTime: totalHours,
   };
 }
 
 function getCumBalance(facultyId) {
   const fac = faculty.find(f=>f.id===facultyId);
   if (!fac) return 0;
+  if (fac.status === 'seconded') return 0;
   const cumUsed = leaves.filter(l=>l.facultyId===facultyId && l.type==='cumulative').reduce((s,l)=>s+l.days,0);
   const cumAdded = leaves.filter(l=>l.facultyId===facultyId && l.type==='cum-add').reduce((s,l)=>s+l.days,0);
   return (fac.initialCumulative || 0) + cumAdded - cumUsed;
@@ -1711,7 +1791,7 @@ function renderFacultyList() {
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
           <div class="avatar">${f.name.charAt(0)}</div>
           <div>
-            <div style="font-size:16px;font-weight:800;color:#000">${f.name} ${f.gender==='female'?'<span style="font-size:13px;">👩</span>':f.gender==='male'?'<span style="font-size:13px;">👨</span>':''} ${f.type==='instructor'?'<span style="font-size:11px;background:rgba(8,145,178,0.12);color:#0891b2;padding:2px 7px;border-radius:8px;">🎓</span>':''}</div>
+            <div style="font-size:16px;font-weight:800;color:#000">${f.name} ${f.gender==='female'?'<span style="font-size:13px;">👩</span>':f.gender==='male'?'<span style="font-size:13px;">👨</span>':''} ${f.type==='instructor'?'<span style="font-size:11px;background:rgba(8,145,178,0.12);color:#0891b2;padding:2px 7px;border-radius:8px;">🎓</span>':''} ${f.status==='seconded'?'<span style="font-size:11px;background:rgba(245,158,11,0.15);color:#92400e;padding:2px 7px;border-radius:8px;">🔄 منسب</span>':''}</div>
             <div style="font-size:15px;color:#000;margin-top:2px;">${f.dept||'—'} ${f.rank?'• '+f.rank:''}</div>
           </div>
         </div>
@@ -1860,9 +1940,9 @@ function renderProfile(id) {
               <tr class="${l.type==='half'?'half-salary-row':''}" ${l.cutDate?'style="opacity:0.7;"':''}>
                 <td>${i+1}</td>
                 <td>${leaveTypeBadge(l.type)}${l.cutDate?` <span style="font-size:11px;color:#64748b;">(مقطوعة ${l.cutDate})</span>`:''}</td>
-                <td>${l.fromDate}</td>
+                <td>${l.fromDate}${l.startTime?' '+l.startTime:''}</td>
                 <td>${l.toDate}</td>
-                <td><strong>${l.days}</strong></td>
+                <td><strong>${l.type==='hourly'?(l.hours||0)+' ساعة':l.days+' يوم'}</strong></td>
                 <td>${l.year}</td>
                 <td>${l.notes||'—'}</td>
                 <td><button class="btn-icon" onclick="deleteLeave('${l.id}')" title="حذف">🗑️</button></td>
@@ -1899,6 +1979,9 @@ function openAddFaculty(type) {
   document.getElementById('faculty-modal-title').textContent = isInstructor ? '🎓 إضافة تدريسي جديد' : '👨‍💼 إضافة موظف جديد';
   ['f-name','f-dept','f-empno','f-hire','f-rank'].forEach(id => document.getElementById(id).value='');
   document.getElementById('f-cumulative').value='0';
+  if(document.getElementById('f-sick-cumulative')) document.getElementById('f-sick-cumulative').value='0';
+  if(document.getElementById('f-status')) document.getElementById('f-status').value='active';
+  if(document.getElementById('f-status-info')) document.getElementById('f-status-info').style.display='none';
   document.getElementById('f-gender').value='';
   document.getElementById('f-type').value = type || 'employee';
   const badge = document.getElementById('f-type-badge');
@@ -1924,6 +2007,12 @@ function openEditFaculty() {
   document.getElementById('f-hire').value = fac.hireYear||'';
   document.getElementById('f-rank').value = fac.rank||'';
   document.getElementById('f-cumulative').value = fac.initialCumulative||0;
+  if(document.getElementById('f-sick-cumulative')) document.getElementById('f-sick-cumulative').value = fac.initialSickCumulative||0;
+  if(document.getElementById('f-status')) {
+    document.getElementById('f-status').value = fac.status||'active';
+    const si = document.getElementById('f-status-info');
+    if(si) si.style.display = (fac.status==='seconded')?'block':'none';
+  }
   document.getElementById('f-gender').value = fac.gender||'';
   document.getElementById('f-type').value = fac.type||'employee';
   const badge = document.getElementById('f-type-badge');
@@ -1950,15 +2039,41 @@ async function saveFaculty() {
       try { await initDB(); } catch(e){}
       if (!db) { showToast('⚠️ فشل الاتصال بقاعدة البيانات، أعد تحميل الصفحة', 'red'); return; }
     }
+    const status = document.getElementById('f-status')?.value || 'active';
+    const wasSecondedBefore = editingFacultyId ? (faculty.find(f=>f.id===editingFacultyId)?.status === 'seconded') : false;
+    const isNowActive = status === 'active';
+    // إذا تحول من منسب إلى مستمر: تاريخ اليوم هو تاريخ مباشرته
+    let hireYear = document.getElementById('f-hire').value;
+    let proRatedDays = 0;
+    if (wasSecondedBefore && isNowActive) {
+      const today = new Date();
+      hireYear = today.getFullYear().toString();
+      // احتساب الأيام المتبقية من السنة: كل شهر = 3 أيام
+      const monthsLeft = 12 - today.getMonth(); // من الشهر الحالي حتى نهاية السنة
+      proRatedDays = monthsLeft * 3;
+    }
     const obj = {
       id: editingFacultyId || Date.now().toString(),
-      name, dept, gender, type,
+      name, dept, gender, type, status,
       empNo: document.getElementById('f-empno').value.trim(),
       rank: document.getElementById('f-rank').value.trim(),
-      hireYear: document.getElementById('f-hire').value,
-      initialCumulative: parseInt(document.getElementById('f-cumulative').value)||0,
+      hireYear: hireYear,
+      initialCumulative: status === 'seconded' ? 0 : (parseInt(document.getElementById('f-cumulative').value)||0),
+      initialSickCumulative: status === 'seconded' ? 0 : (parseInt(document.getElementById('f-sick-cumulative')?.value)||0),
+      activationDate: (wasSecondedBefore && isNowActive) ? new Date().toISOString().split('T')[0] : undefined,
+      proRatedNormalDays: (wasSecondedBefore && isNowActive) ? proRatedDays : undefined,
     };
     await dbPut('faculty', obj);
+    // إذا تحول من منسب إلى مستمر: أضف له أيامه الاعتيادية النسبية كاستثناء
+    if (wasSecondedBefore && isNowActive && proRatedDays > 0) {
+      const cy = currentYear();
+      const today2 = new Date().toISOString().split('T')[0];
+      await addLeaveRecord({
+        facultyId: obj.id, type: 'exception',
+        days: proRatedDays, fromDate: today2, toDate: today2, year: cy,
+        notes: `إجازات اعتيادية نسبية عند تحويل الموظف من منسب إلى مستمر (${proRatedDays} يوم)`,
+      });
+    }
     faculty = await dbAll('faculty');
     closeModal('modal-faculty');
     renderFacultyList();
@@ -2286,6 +2401,8 @@ function exportExcel() {
     postbirth:       'إجازة بعد الوضع',
     maternity:       'إجازة أمومة',
     'maternity-ext': 'تمديد إجازة أمومة',
+    'hourly':        'إجازة زمنية (ساعات)',
+    'sick-cum-deduct':'مرضية تراكمية',
   };
 
   const filtered = leaves.filter(l=>{
@@ -2733,6 +2850,7 @@ function openLeaveTypeSelector() {
   let btns = `
     <button class="btn btn-green"  style="width:100%;justify-content:center;" onclick="closeModal('modal-leave-type');openAddLeave('normal')">📅 إجازة اعتيادية</button>
     <button class="btn btn-red"    style="width:100%;justify-content:center;" onclick="closeModal('modal-leave-type');openAddLeave('sick')">🏥 إجازة مرضية</button>
+    <button class="btn" style="width:100%;justify-content:center;background:linear-gradient(135deg,#0d9488,#0f766e);color:#fff;box-shadow:0 4px 14px rgba(13,148,136,0.3);" onclick="closeModal('modal-leave-type');openHourlyLeave()">⏰ إجازة زمنية (ساعات)</button>
     <button class="btn" style="width:100%;justify-content:center;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 14px rgba(99,102,241,0.3);" onclick="closeModal('modal-leave-type');openStudyLeave()">📚 إجازة دراسية</button>
     <button class="btn" style="width:100%;justify-content:center;background:linear-gradient(135deg,#0891b2,#0369a1);color:#fff;box-shadow:0 4px 14px rgba(8,145,178,0.3);" onclick="closeModal('modal-leave-type');openExtLeave('long')">🏖️ إجازة طويلة</button>
     <button class="btn" style="width:100%;justify-content:center;background:linear-gradient(135deg,#059669,#047857);color:#fff;box-shadow:0 4px 14px rgba(5,150,105,0.3);" onclick="closeModal('modal-leave-type');openExtLeave('fiveyear')">🗓️ إجازة 5 سنوات</button>`;
@@ -3565,6 +3683,123 @@ function toggleActivityPanel() {
   const panel = document.getElementById('activity-panel');
   panel.classList.toggle('open');
   if (panel.classList.contains('open')) renderActivityList();
+}
+
+// ==================== FACULTY STATUS CHANGE ====================
+function onFacultyStatusChange() {
+  const status = document.getElementById('f-status')?.value;
+  const info = document.getElementById('f-status-info');
+  if (!info) return;
+  info.style.display = status === 'seconded' ? 'block' : 'none';
+  if (status === 'seconded') {
+    document.getElementById('f-cumulative').value = '0';
+    if (document.getElementById('f-sick-cumulative')) document.getElementById('f-sick-cumulative').value = '0';
+  }
+}
+
+// ==================== HOURLY LEAVE ====================
+function openHourlyLeave() {
+  const years = getYearsList();
+  const cy = currentYear();
+  document.getElementById('hl-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('hl-start-time').value = '';
+  document.getElementById('hl-hours').value = '';
+  document.getElementById('hl-notes').value = '';
+  document.getElementById('hl-info-box').style.display = 'none';
+  document.getElementById('hl-year').innerHTML = years.map(y=>`<option value="${y}" ${y===cy?'selected':''}>${y}</option>`).join('');
+  openModal('modal-hourly-leave');
+}
+
+function updateHourlyInfo() {
+  if (!currentFacultyId) return;
+  const hours = parseFloat(document.getElementById('hl-hours').value)||0;
+  const box = document.getElementById('hl-info-box');
+  if (!hours) { box.style.display='none'; return; }
+
+  const bal = getBalance(currentFacultyId, document.getElementById('hl-year').value);
+  // الساعات المتراكمة الحالية
+  const allLeavesForFac = leaves.filter(l=>l.facultyId===currentFacultyId);
+  const totalHoursUsed = allLeavesForFac.filter(l=>l.type==='hourly').reduce((s,l)=>s+(l.hours||0),0);
+  const totalDeducted  = allLeavesForFac.filter(l=>l.type==='hourly-deduct').reduce((s,l)=>s+l.days,0);
+
+  // الساعات التي ستستقطع يوماً بعد هذه الإجازة
+  const newTotal = totalHoursUsed + hours;
+  const newDeductDays = Math.floor(newTotal / HOURS_PER_DAY_DEDUCT);
+  const daysToDeduct = newDeductDays - totalDeducted;
+
+  box.style.display = 'block';
+  let info = `<span style="color:#0d9488;font-weight:700;">⏰ الساعات المطلوبة: ${hours} ساعة</span><br>`;
+  info += `<span style="color:#64748b;">إجمالي الساعات التراكمية بعد الإجازة: <strong>${newTotal.toFixed(1)}</strong> ساعة</span><br>`;
+  if (daysToDeduct > 0) {
+    info += `<span style="color:#d97706;font-weight:700;">⚠️ سيُستقطع <strong>${daysToDeduct}</strong> يوم من الرصيد الاعتيادي (الرصيد الحالي: ${bal.normal} يوم)</span>`;
+  } else {
+    const remaining = HOURS_PER_DAY_DEDUCT - (newTotal % HOURS_PER_DAY_DEDUCT);
+    info += `<span style="color:#059669;">✅ لم يصل إلى حد الاستقطاع | يحتاج ${remaining.toFixed(1)} ساعة إضافية لاستقطاع يوم</span>`;
+  }
+  box.innerHTML = info;
+}
+
+async function saveHourlyLeave() {
+  const date  = document.getElementById('hl-date').value;
+  const startTime = document.getElementById('hl-start-time').value;
+  const hours = parseFloat(document.getElementById('hl-hours').value);
+  const year  = document.getElementById('hl-year').value;
+  const notes = document.getElementById('hl-notes').value.trim();
+
+  if (!date || !hours || hours <= 0) { showToast('⚠️ الرجاء تعبئة التاريخ وعدد الساعات', 'red'); return; }
+  if (!startTime) { showToast('⚠️ الرجاء تحديد وقت البداية', 'red'); return; }
+
+  // احتساب الساعات المتراكمة قبل هذه الإجازة
+  const allLeavesForFac = leaves.filter(l=>l.facultyId===currentFacultyId);
+  const totalHoursBefore = allLeavesForFac.filter(l=>l.type==='hourly').reduce((s,l)=>s+(l.hours||0),0);
+  const totalDeductedBefore = allLeavesForFac.filter(l=>l.type==='hourly-deduct').reduce((s,l)=>s+l.days,0);
+
+  const newTotal = totalHoursBefore + hours;
+  const newDeductDays = Math.floor(newTotal / HOURS_PER_DAY_DEDUCT);
+  const daysToDeduct = newDeductDays - totalDeductedBefore;
+
+  // سجّل الإجازة الزمنية
+  await addLeaveRecord({
+    facultyId: currentFacultyId, type: 'hourly',
+    days: 0, // لا تستقطع أيام مباشرة
+    hours: hours,
+    fromDate: date, toDate: date, year,
+    startTime,
+    notes: notes || `إجازة زمنية ${hours} ساعة`,
+  });
+
+  // إذا تجاوز المجموع حد الاستقطاع → سجّل استقطاع أيام اعتيادية
+  if (daysToDeduct > 0) {
+    const bal = getBalance(currentFacultyId, year);
+    // استقطع من الاعتيادي أولاً، ثم التراكمي إذا لزم
+    const fromNormal = Math.min(daysToDeduct, Math.max(0, bal.normal));
+    const fromCum    = daysToDeduct - fromNormal;
+    if (fromNormal > 0) {
+      await addLeaveRecord({
+        facultyId: currentFacultyId, type: 'hourly-deduct',
+        days: fromNormal, fromDate: date, toDate: date, year,
+        notes: `استقطاع تلقائي من الإجازات الزمنية (كل ${HOURS_PER_DAY_DEDUCT} ساعات = يوم)`,
+        autoDeduct: true,
+      });
+    }
+    if (fromCum > 0) {
+      await addLeaveRecord({
+        facultyId: currentFacultyId, type: 'cumulative',
+        days: fromCum, fromDate: date, toDate: date, year,
+        notes: `استقطاع من التراكمي لتغطية الإجازات الزمنية`,
+        autoDeduct: true,
+      });
+    }
+    showToast(`⚠️ تم استقطاع ${daysToDeduct} يوم اعتيادي بسبب تراكم الساعات الزمنية`, 'orange');
+  } else {
+    showToast('✅ تم تسجيل الإجازة الزمنية بنجاح', 'green');
+  }
+
+  closeModal('modal-hourly-leave');
+  await renderProfile(currentFacultyId);
+  renderFacultyList(); renderDashboard();
+  const fac = faculty.find(f=>f.id===currentFacultyId);
+  await logActivity(`⏰ إجازة زمنية (${hours} ساعة) — ${fac?.name||''}${daysToDeduct>0?' | استقطاع '+daysToDeduct+' يوم اعتيادي':''}`, 'blue');
 }
 
 // ==================== DISABLE DEVTOOLS SHORTCUTS ====================
