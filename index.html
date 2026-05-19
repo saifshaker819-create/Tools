@@ -671,8 +671,9 @@
     <div class="nav-item" onclick="showPage('database')">
       <span class="icon">🗄️</span> قاعدة البيانات
     </div>
-    <div class="nav-item" onclick="openGlobalYearClose()" style="background:linear-gradient(135deg,rgba(245,158,11,0.13),rgba(249,115,22,0.08));border:1px solid rgba(245,158,11,0.25);color:#92400e;font-weight:800;">
-      <span class="icon">⚡</span> إغلاق السنة وترحيل الإجازات
+    <div onclick="openGlobalYearClose()" style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:3px;background:linear-gradient(135deg,rgba(245,158,11,0.18),rgba(249,115,22,0.12));border:1.5px solid rgba(245,158,11,0.35);color:#92400e;font-weight:800;font-size:14px;line-height:1.4;transition:all 0.2s;" onmouseenter="this.style.background='linear-gradient(135deg,rgba(245,158,11,0.28),rgba(249,115,22,0.20))'" onmouseleave="this.style.background='linear-gradient(135deg,rgba(245,158,11,0.18),rgba(249,115,22,0.12))'">
+      <span style="font-size:18px;min-width:24px;text-align:center;">⚡</span>
+      <span>إغلاق السنة<br><span style="font-size:12px;font-weight:600;opacity:0.85;">وترحيل الإجازات</span></span>
     </div>
     <div class="activity-toggle-btn" onclick="toggleActivityPanel()">
       <span class="icon">📋</span> سجل العمليات
@@ -780,6 +781,100 @@
       </div>
 
       <div id="profile-content"></div>
+    </div>
+
+    <!-- ===== ADD/EDIT FACULTY PAGE ===== -->
+    <div class="page" id="page-add-faculty">
+      <div class="page-header">
+        <div>
+          <button class="btn btn-outline btn-sm" onclick="cancelAddFaculty()" style="margin-bottom:8px;">← رجوع</button>
+          <div class="page-title" id="faculty-page-title">إضافة موظف جديد</div>
+          <div class="page-subtitle" id="faculty-page-subtitle">أدخل بيانات الموظف أدناه</div>
+        </div>
+      </div>
+
+      <div class="glass-card" style="max-width:820px;margin:0 auto;">
+        <!-- نوع الموظف badge -->
+        <div id="f-type-badge" style="margin-bottom:18px;padding:10px 16px;border-radius:12px;font-size:14px;font-weight:700;display:none;"></div>
+        <input type="hidden" id="f-type" value="employee">
+
+        <!-- اسم موجود تحذير -->
+        <div id="f-name-dup-warn" style="display:none;margin-bottom:12px;padding:10px 16px;border-radius:10px;background:rgba(239,68,68,0.09);border:1.5px solid rgba(239,68,68,0.3);font-size:14px;font-weight:700;color:var(--red);">
+          ⚠️ هذا الاسم موجود مسبقاً في النظام — الرجاء التحقق
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">الاسم الكامل *</label>
+            <input class="form-input" id="f-name" placeholder="أدخل الاسم الكامل" oninput="checkDuplicateName()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">القسم</label>
+            <input class="form-input" id="f-dept" placeholder="مثال: قسم الموارد البشرية">
+          </div>
+          <div class="form-group">
+            <label class="form-label">رقم التوظيف</label>
+            <input class="form-input" id="f-empno" placeholder="اختياري">
+          </div>
+          <div class="form-group">
+            <label class="form-label">العنوان الوظيفي</label>
+            <input class="form-input" id="f-rank" placeholder="مثال: مدير، محاسب، مهندس...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">سنة التعيين</label>
+            <input class="form-input" id="f-hire" type="number" placeholder="مثال: 2015">
+          </div>
+          <div class="form-group">
+            <label class="form-label">الجنس *</label>
+            <select class="form-select" id="f-gender">
+              <option value="">-- اختر الجنس --</option>
+              <option value="male">ذكر 👨</option>
+              <option value="female">أنثى 👩</option>
+            </select>
+          </div>
+          <div class="form-group" id="f-cumulative-group">
+            <label class="form-label">رصيد تراكمي أولي (أيام)</label>
+            <input class="form-input" id="f-cumulative" type="number" min="0" value="0">
+          </div>
+          <div class="form-group" id="f-sick-cumulative-group">
+            <label class="form-label">رصيد مرضي تراكمي أولي (أيام)</label>
+            <input class="form-input" id="f-sick-cumulative" type="number" min="0" value="0" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">حالة الموظف</label>
+            <select class="form-select" id="f-status" onchange="onFacultyStatusChange()">
+              <option value="active">مستمر ✅</option>
+              <option value="seconded">منسب 🔄</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- تحذير منسب -->
+        <div id="f-status-info" style="display:none;margin-bottom:12px;padding:10px 16px;border-radius:10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);font-size:13px;color:#92400e;font-weight:700;">
+          ⚠️ الموظف المنسب لا يكون له أي رصيد اعتيادي أو تراكمي أو مرضي.
+        </div>
+
+        <!-- بلوك تفعيل منسب → مستمر -->
+        <div id="f-activation-block" style="display:none;margin-bottom:16px;padding:16px;border-radius:12px;background:rgba(16,185,129,0.07);border:1.5px solid rgba(16,185,129,0.25);">
+          <div style="font-size:15px;font-weight:800;color:#059669;margin-bottom:8px;">✅ تحويل من منسب إلى مستمر</div>
+          <div style="font-size:13px;color:#064e3b;margin-bottom:14px;" id="f-activation-desc">سيُعتبر اليوم تاريخ المباشرة وسيُحسب الرصيد الاعتيادي النسبي (كل 10 أيام عمل = يوم إجازة اعتيادية).</div>
+          <div class="form-grid">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">رصيد تراكمي اعتيادي (اختياري)</label>
+              <input class="form-input" id="f-activation-cum" type="number" min="0" value="0" placeholder="0">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">رصيد مرضي تراكمي (اختياري)</label>
+              <input class="form-input" id="f-activation-sick-cum" type="number" min="0" value="0" placeholder="0">
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:8px;">
+          <button class="btn btn-primary" style="padding:13px 32px;font-size:15px;" onclick="saveFaculty()">💾 حفظ البيانات</button>
+          <button class="btn btn-outline" style="padding:13px 24px;" onclick="cancelAddFaculty()">إلغاء</button>
+        </div>
+      </div>
     </div>
 
     <!-- ===== LEAVES LOG ===== -->
@@ -963,6 +1058,27 @@
         </div>
       </div>
 
+      <!-- WhatsApp Share Card -->
+      <div class="glass-card" style="border:1.5px solid rgba(37,211,102,0.3);background:rgba(37,211,102,0.04);margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
+          <div style="width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,#25D366,#128C7E);display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 4px 14px rgba(37,211,102,0.35);">📱</div>
+          <div>
+            <div style="font-size:17px;font-weight:800;color:var(--text-dark);">مشاركة قاعدة البيانات عبر واتس اب</div>
+            <div style="font-size:12px;color:var(--text-light);margin-top:2px;">تنزيل النسخة الاحتياطية ومشاركتها مباشرة</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;">
+            <label style="font-size:14px;font-weight:700;color:#000;margin-bottom:6px;display:block;">📞 رقم الواتس اب</label>
+            <input class="form-input" id="wa-phone" type="tel" placeholder="مثال: 9647801234567" style="direction:ltr;text-align:left;" oninput="saveWaPhone()">
+            <div style="font-size:11px;color:#64748b;margin-top:4px;">أدخل الرقم مع رمز البلد بدون + (مثال: 964 للعراق)</div>
+          </div>
+          <button class="btn" style="background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;box-shadow:0 4px 14px rgba(37,211,102,0.4);padding:12px 20px;white-space:nowrap;" onclick="shareViaWhatsapp()">
+            📤 مشاركة عبر واتس اب
+          </button>
+        </div>
+      </div>
+
       <!-- DB Info -->
       <div class="glass-card">
         <div class="section-title"><span class="dot" style="background:var(--accent3)"></span>معلومات قاعدة البيانات الحالية</div>
@@ -975,70 +1091,7 @@
 
 <!-- ===== MODALS ===== -->
 
-<!-- Add/Edit Faculty Modal -->
-<div class="modal-overlay" id="modal-faculty">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="faculty-modal-title">إضافة موظف</div>
-      <button class="modal-close" onclick="closeModal('modal-faculty')">✕</button>
-    </div>
-    <!-- Employee type badge (readonly display) -->
-    <div id="f-type-badge" style="margin-bottom:14px;padding:8px 14px;border-radius:10px;font-size:14px;font-weight:700;display:none;"></div>
-    <input type="hidden" id="f-type" value="employee">
-    <div class="form-grid">
-      <div class="form-group">
-        <label class="form-label">الاسم الكامل *</label>
-        <input class="form-input" id="f-name" placeholder="أدخل الاسم الكامل">
-      </div>
-      <div class="form-group">
-        <label class="form-label">القسم *</label>
-        <input class="form-input" id="f-dept" placeholder="مثال: قسم الموارد البشرية">
-      </div>
-      <div class="form-group">
-        <label class="form-label">رقم التوظيف</label>
-        <input class="form-input" id="f-empno" placeholder="اختياري">
-      </div>
-      <div class="form-group">
-        <label class="form-label">العنوان الوظيفي</label>
-        <input class="form-input" id="f-rank" placeholder="مثال: مدير، محاسب، مهندس...">
-      </div>
-      <div class="form-group">
-        <label class="form-label">سنة التعيين</label>
-        <input class="form-input" id="f-hire" type="number" placeholder="مثال: 2015">
-      </div>
-      <div class="form-group">
-        <label class="form-label">الجنس *</label>
-        <select class="form-select" id="f-gender">
-          <option value="">-- اختر الجنس --</option>
-          <option value="male">ذكر 👨</option>
-          <option value="female">أنثى 👩</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">رصيد تراكمي أولي (أيام)</label>
-        <input class="form-input" id="f-cumulative" type="number" min="0" value="0">
-      </div>
-      <div class="form-group">
-        <label class="form-label">رصيد مرضي تراكمي أولي (أيام)</label>
-        <input class="form-input" id="f-sick-cumulative" type="number" min="0" value="0" placeholder="الأيام المرضية التراكمية المتراكمة">
-      </div>
-      <div class="form-group">
-        <label class="form-label">حالة الموظف</label>
-        <select class="form-select" id="f-status" onchange="onFacultyStatusChange()">
-          <option value="active">مستمر ✅</option>
-          <option value="seconded">منسب 🔄</option>
-        </select>
-      </div>
-    </div>
-    <div id="f-status-info" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);font-size:13px;color:#92400e;font-weight:600;">
-      ⚠️ الموظف المنسب لا يكون له أي رصيد اعتيادي أو تراكمي أو مرضي.
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-primary" onclick="saveFaculty()">💾 حفظ</button>
-      <button type="button" class="btn btn-outline" onclick="closeModal('modal-faculty')">إلغاء</button>
-    </div>
-  </div>
-</div>
+<!-- Add/Edit Faculty - Full Page (replaces modal) -->
 
 <!-- Add Leave Modal -->
 <div class="modal-overlay" id="modal-leave">
@@ -1371,6 +1424,25 @@
   </div>
 </div>
 
+<!-- WhatsApp Backup Modal (logout/close) -->
+<div class="modal-overlay" id="modal-wa-backup">
+  <div class="modal modal-sm">
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:44px;margin-bottom:8px;">📱</div>
+      <div style="font-size:17px;font-weight:800;color:#000;margin-bottom:6px;">مشاركة قاعدة البيانات؟</div>
+      <div style="font-size:14px;color:#64748b;line-height:1.6;">هل تريد تنزيل نسخة احتياطية ومشاركتها عبر واتس اب قبل المتابعة؟</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn" style="background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;box-shadow:0 4px 14px rgba(37,211,102,0.35);width:100%;justify-content:center;padding:13px;" onclick="confirmWaBackupAndProceed()">
+        📤 تنزيل ومشاركة عبر واتس اب
+      </button>
+      <button class="btn btn-outline" style="width:100%;justify-content:center;padding:12px;" onclick="skipWaBackupAndProceed()">
+        ❌ لا، تخطي
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm Delete -->
 <div class="modal-overlay" id="modal-confirm">
   <div class="modal modal-sm">
@@ -1518,6 +1590,8 @@ async function init() {
   renderDashboard();
   renderFacultyList();
   populateFilters();
+  // load saved WA phone on startup
+  setTimeout(loadWaPhone, 100);
 }
 
 // ==================== AUTH SYSTEM ====================
@@ -1642,9 +1716,9 @@ function showPage(name) {
   if (name === 'leaves') renderLeavesLog();
   if (name === 'statistics') renderStats();
   if (name === 'dashboard') renderDashboard();
-  if (name === 'database') renderDbInfo();
+  if (name === 'database') { renderDbInfo(); loadWaPhone(); }
 }
-const pageNames = { dashboard:'الرئيسية', faculty:'الموظف', profile:'', leaves:'سجل', statistics:'الإحصائيات', database:'قاعدة' };
+const pageNames = { dashboard:'الرئيسية', faculty:'الموظف', profile:'', 'add-faculty':'', leaves:'سجل', statistics:'الإحصائيات', database:'قاعدة' };
 
 // ==================== DASHBOARD ====================
 function renderDashboard() {
@@ -1956,6 +2030,25 @@ function renderProfile(id) {
   `;
 }
 
+function cancelAddFaculty() {
+  showPage(_prevPageBeforeAddFaculty || 'faculty');
+  if (_prevPageBeforeAddFaculty === 'profile' && currentFacultyId) {
+    renderProfile(currentFacultyId);
+  }
+}
+
+function checkDuplicateName() {
+  const name = (document.getElementById('f-name')?.value || '').trim();
+  const warn = document.getElementById('f-name-dup-warn');
+  if (!warn) return;
+  if (!name) { warn.style.display = 'none'; return; }
+  const dup = faculty.find(f =>
+    f.name.trim().toLowerCase() === name.toLowerCase() &&
+    f.id !== (editingFacultyId || '')
+  );
+  warn.style.display = dup ? 'block' : 'none';
+}
+
 // ==================== YEAR CLOSE ====================
 async function closeYearBalance(id) {
   const cy = currentYear();
@@ -1973,58 +2066,96 @@ async function closeYearBalance(id) {
 
 // ==================== ADD FACULTY ====================
 let editingFacultyId = null;
+let _prevPageBeforeAddFaculty = 'faculty'; // للرجوع بعد الإلغاء/الحفظ
+
 function openAddFaculty(type) {
   editingFacultyId = null;
+  _prevPageBeforeAddFaculty = document.querySelector('.page.active')?.id?.replace('page-','') || 'faculty';
   const isInstructor = type === 'instructor';
-  document.getElementById('faculty-modal-title').textContent = isInstructor ? '🎓 إضافة تدريسي جديد' : '👨‍💼 إضافة موظف جديد';
-  ['f-name','f-dept','f-empno','f-hire','f-rank'].forEach(id => document.getElementById(id).value='');
-  document.getElementById('f-cumulative').value='0';
-  if(document.getElementById('f-sick-cumulative')) document.getElementById('f-sick-cumulative').value='0';
-  if(document.getElementById('f-status')) document.getElementById('f-status').value='active';
-  if(document.getElementById('f-status-info')) document.getElementById('f-status-info').style.display='none';
-  document.getElementById('f-gender').value='';
+
+  // عنوان الصفحة
+  document.getElementById('faculty-page-title').textContent = isInstructor ? '🎓 إضافة تدريسي جديد' : '👨‍💼 إضافة موظف جديد';
+  document.getElementById('faculty-page-subtitle').textContent = isInstructor ? 'أدخل بيانات التدريسي أدناه' : 'أدخل بيانات الموظف أدناه';
+
+  // تفريغ الحقول
+  ['f-name','f-dept','f-empno','f-hire','f-rank'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('f-cumulative').value = '0';
+  document.getElementById('f-sick-cumulative').value = '0';
+  document.getElementById('f-gender').value = '';
   document.getElementById('f-type').value = type || 'employee';
-  const badge = document.getElementById('f-type-badge');
-  badge.style.display='block';
-  if (isInstructor) {
-    badge.style.background='rgba(8,145,178,0.1)'; badge.style.color='#0891b2'; badge.style.border='1px solid rgba(8,145,178,0.2)';
-    badge.textContent='🎓 تدريسي — الإجازة الاعتيادية: 15 يوم | المرضية: 30 يوم';
-  } else {
-    badge.style.background='rgba(99,102,241,0.08)'; badge.style.color='#6366f1'; badge.style.border='1px solid rgba(99,102,241,0.18)';
-    badge.textContent='👨‍💼 موظف — الإجازة الاعتيادية: 36 يوم | المرضية: 30 يوم';
+
+  // إعادة ضبط الحالة
+  const statusEl = document.getElementById('f-status');
+  if (statusEl) {
+    statusEl.value = 'active';
+    Array.from(statusEl.options).forEach(opt => { opt.disabled = false; });
   }
-  openModal('modal-faculty');
+  document.getElementById('f-status-info').style.display = 'none';
+  document.getElementById('f-activation-block').style.display = 'none';
+  document.getElementById('f-name-dup-warn').style.display = 'none';
+
+  // badge النوع
+  const badge = document.getElementById('f-type-badge');
+  badge.style.display = 'block';
+  if (isInstructor) {
+    badge.style.cssText += ';background:rgba(8,145,178,0.1);color:#0891b2;border:1px solid rgba(8,145,178,0.2);';
+    badge.textContent = '🎓 تدريسي — الإجازة الاعتيادية: 15 يوم | المرضية: 30 يوم';
+  } else {
+    badge.style.cssText += ';background:rgba(99,102,241,0.08);color:#6366f1;border:1px solid rgba(99,102,241,0.18);';
+    badge.textContent = '👨‍💼 موظف — الإجازة الاعتيادية: 36 يوم | المرضية: 30 يوم';
+  }
+
+  showPage('add-faculty');
+  // focus على حقل الاسم
+  setTimeout(() => { try { document.getElementById('f-name').focus(); } catch(_) {} }, 150);
 }
 function openEditFaculty() {
   const fac = faculty.find(f=>f.id===currentFacultyId);
   if (!fac) return;
   editingFacultyId = fac.id;
+  _prevPageBeforeAddFaculty = 'profile';
   const isInstructor = fac.type === 'instructor';
-  document.getElementById('faculty-modal-title').textContent = isInstructor ? '🎓 تعديل بيانات التدريسي' : '👨‍💼 تعديل بيانات الموظف';
+
+  // عنوان الصفحة
+  document.getElementById('faculty-page-title').textContent = isInstructor ? '🎓 تعديل بيانات التدريسي' : '👨‍💼 تعديل بيانات الموظف';
+  document.getElementById('faculty-page-subtitle').textContent = fac.name || '';
+
+  // تعبئة الحقول
   document.getElementById('f-name').value = fac.name||'';
   document.getElementById('f-dept').value = fac.dept||'';
   document.getElementById('f-empno').value = fac.empNo||'';
   document.getElementById('f-hire').value = fac.hireYear||'';
   document.getElementById('f-rank').value = fac.rank||'';
   document.getElementById('f-cumulative').value = fac.initialCumulative||0;
-  if(document.getElementById('f-sick-cumulative')) document.getElementById('f-sick-cumulative').value = fac.initialSickCumulative||0;
-  if(document.getElementById('f-status')) {
-    document.getElementById('f-status').value = fac.status||'active';
-    const si = document.getElementById('f-status-info');
-    if(si) si.style.display = (fac.status==='seconded')?'block':'none';
-  }
+  document.getElementById('f-sick-cumulative').value = fac.initialSickCumulative||0;
   document.getElementById('f-gender').value = fac.gender||'';
   document.getElementById('f-type').value = fac.type||'employee';
-  const badge = document.getElementById('f-type-badge');
-  badge.style.display='block';
-  if (isInstructor) {
-    badge.style.background='rgba(8,145,178,0.1)'; badge.style.color='#0891b2'; badge.style.border='1px solid rgba(8,145,178,0.2)';
-    badge.textContent='🎓 تدريسي — الإجازة الاعتيادية: 15 يوم | المرضية: 30 يوم';
-  } else {
-    badge.style.background='rgba(99,102,241,0.08)'; badge.style.color='#6366f1'; badge.style.border='1px solid rgba(99,102,241,0.18)';
-    badge.textContent='👨‍💼 موظف — الإجازة الاعتيادية: 36 يوم | المرضية: 30 يوم';
+  document.getElementById('f-name-dup-warn').style.display = 'none';
+
+  // الحالة
+  const statusEl = document.getElementById('f-status');
+  if (statusEl) {
+    statusEl.value = fac.status||'active';
+    // إذا كان مستمراً: لا يجوز تحويله لمنسب
+    Array.from(statusEl.options).forEach(opt => {
+      opt.disabled = (fac.status !== 'seconded' && opt.value === 'seconded');
+    });
   }
-  openModal('modal-faculty');
+  document.getElementById('f-status-info').style.display = (fac.status==='seconded') ? 'block' : 'none';
+  document.getElementById('f-activation-block').style.display = 'none';
+
+  // badge النوع
+  const badge = document.getElementById('f-type-badge');
+  badge.style.display = 'block';
+  if (isInstructor) {
+    badge.style.cssText += ';background:rgba(8,145,178,0.1);color:#0891b2;border:1px solid rgba(8,145,178,0.2);';
+    badge.textContent = '🎓 تدريسي — الإجازة الاعتيادية: 15 يوم | المرضية: 30 يوم';
+  } else {
+    badge.style.cssText += ';background:rgba(99,102,241,0.08);color:#6366f1;border:1px solid rgba(99,102,241,0.18);';
+    badge.textContent = '👨‍💼 موظف — الإجازة الاعتيادية: 36 يوم | المرضية: 30 يوم';
+  }
+
+  showPage('add-faculty');
 }
 async function saveFaculty() {
   try {
@@ -2034,6 +2165,21 @@ async function saveFaculty() {
     const gender = document.getElementById('f-gender').value;
     const type = document.getElementById('f-type').value || 'employee';
     if (!name) { showToast('⚠️ الرجاء إدخال الاسم', 'red'); return; }
+    // التحقق من تكرار الاسم (عند الإضافة أو التعديل لموظف مختلف)
+    const duplicateName = faculty.find(f =>
+      f.name.trim().toLowerCase() === name.toLowerCase() &&
+      f.id !== (editingFacultyId || '')
+    );
+    if (duplicateName) {
+      showToast(`⚠️ الاسم "${name}" موجود مسبقاً في النظام`, 'red');
+      document.getElementById('f-name').style.borderColor = 'var(--red)';
+      document.getElementById('f-name').style.boxShadow = '0 0 0 3px rgba(239,68,68,0.15)';
+      setTimeout(() => {
+        document.getElementById('f-name').style.borderColor = '';
+        document.getElementById('f-name').style.boxShadow = '';
+      }, 3000);
+      return;
+    }
     if (!gender) { showToast('⚠️ الرجاء تحديد الجنس (ذكر / أنثى)', 'red'); return; }
     if (!db) {
       try { await initDB(); } catch(e){}
@@ -2048,9 +2194,10 @@ async function saveFaculty() {
     if (wasSecondedBefore && isNowActive) {
       const today = new Date();
       hireYear = today.getFullYear().toString();
-      // احتساب الأيام المتبقية من السنة: كل شهر = 3 أيام
-      const monthsLeft = 12 - today.getMonth(); // من الشهر الحالي حتى نهاية السنة
-      proRatedDays = monthsLeft * 3;
+      // القاعدة: كل 10 أيام متبقية من السنة = يوم إجازة اعتيادية واحد
+      const endOfYear = new Date(today.getFullYear(), 11, 31); // 31 ديسمبر
+      const daysLeftInYear = Math.floor((endOfYear - today) / 86400000) + 1;
+      proRatedDays = Math.floor(daysLeftInYear / 10);
     }
     const obj = {
       id: editingFacultyId || Date.now().toString(),
@@ -2064,18 +2211,25 @@ async function saveFaculty() {
       proRatedNormalDays: (wasSecondedBefore && isNowActive) ? proRatedDays : undefined,
     };
     await dbPut('faculty', obj);
-    // إذا تحول من منسب إلى مستمر: أضف له أيامه الاعتيادية النسبية كاستثناء
-    if (wasSecondedBefore && isNowActive && proRatedDays > 0) {
+    // إذا تحول من منسب إلى مستمر: اقرأ الرصيد التراكمي من بلوك التفعيل
+    if (wasSecondedBefore && isNowActive) {
+      const activationCum = parseInt(document.getElementById('f-activation-cum')?.value)||0;
+      const activationSickCum = parseInt(document.getElementById('f-activation-sick-cum')?.value)||0;
+      obj.initialCumulative = activationCum;
+      obj.initialSickCumulative = activationSickCum;
+      await dbPut('faculty', obj); // تحديث بالقيم الصحيحة
       const cy = currentYear();
       const today2 = new Date().toISOString().split('T')[0];
-      await addLeaveRecord({
-        facultyId: obj.id, type: 'exception',
-        days: proRatedDays, fromDate: today2, toDate: today2, year: cy,
-        notes: `إجازات اعتيادية نسبية عند تحويل الموظف من منسب إلى مستمر (${proRatedDays} يوم)`,
-      });
+      if (proRatedDays > 0) {
+        await addLeaveRecord({
+          facultyId: obj.id, type: 'exception',
+          days: proRatedDays, fromDate: today2, toDate: today2, year: cy,
+          notes: `إجازات اعتيادية نسبية عند تحويل الموظف من منسب إلى مستمر (${proRatedDays} يوم)`,
+        });
+      }
     }
     faculty = await dbAll('faculty');
-    closeModal('modal-faculty');
+    showPage(_prevPageBeforeAddFaculty || 'faculty');
     renderFacultyList();
     populateFilters();
     renderDashboard();
@@ -3543,7 +3697,7 @@ async function doLogin() {
   }
 }
 
-async function doLogout() {
+async function _doLogoutNow() {
   await logActivity('🚪 تسجيل الخروج من النظام', 'red');
   currentUser = null;
   document.getElementById('login-screen').classList.remove('hidden');
@@ -3554,6 +3708,10 @@ async function doLogout() {
   document.getElementById('stats-grid').innerHTML = '';
   document.getElementById('recent-leaves-body').innerHTML = '';
   document.getElementById('faculty-grid').innerHTML = '';
+}
+
+async function doLogout() {
+  openWaBackupDialog(_doLogoutNow);
 }
 
 // ==================== CHANGE PASSWORD ====================
@@ -3689,11 +3847,39 @@ function toggleActivityPanel() {
 function onFacultyStatusChange() {
   const status = document.getElementById('f-status')?.value;
   const info = document.getElementById('f-status-info');
-  if (!info) return;
-  info.style.display = status === 'seconded' ? 'block' : 'none';
-  if (status === 'seconded') {
-    document.getElementById('f-cumulative').value = '0';
-    if (document.getElementById('f-sick-cumulative')) document.getElementById('f-sick-cumulative').value = '0';
+  const activationBlock = document.getElementById('f-activation-block');
+
+  // إذا كان الموظف موجوداً ومستمراً → لا يُسمح بتحويله إلى منسب
+  if (editingFacultyId) {
+    const existingFac = faculty.find(f=>f.id===editingFacultyId);
+    if (existingFac && existingFac.status !== 'seconded' && status === 'seconded') {
+      showToast('⚠️ لا يمكن تحويل موظف مستمر إلى منسب', 'red');
+      document.getElementById('f-status').value = 'active';
+      if (info) info.style.display = 'none';
+      if (activationBlock) activationBlock.style.display = 'none';
+      return;
+    }
+    // تحويل منسب → مستمر: أظهر بلوك التفعيل
+    const wasSeconded = existingFac?.status === 'seconded';
+    if (wasSeconded && status === 'active') {
+      if (info) info.style.display = 'none';
+      if (activationBlock) {
+        activationBlock.style.display = 'block';
+        document.getElementById('f-activation-cum').value = '0';
+        document.getElementById('f-activation-sick-cum').value = '0';
+      }
+    } else {
+      if (activationBlock) activationBlock.style.display = 'none';
+      if (info) info.style.display = status === 'seconded' ? 'block' : 'none';
+    }
+  } else {
+    // موظف جديد: يمكن اختيار منسب
+    if (info) info.style.display = status === 'seconded' ? 'block' : 'none';
+    if (activationBlock) activationBlock.style.display = 'none';
+    if (status === 'seconded') {
+      document.getElementById('f-cumulative').value = '0';
+      if (document.getElementById('f-sick-cumulative')) document.getElementById('f-sick-cumulative').value = '0';
+    }
   }
 }
 
@@ -3802,6 +3988,99 @@ async function saveHourlyLeave() {
   await logActivity(`⏰ إجازة زمنية (${hours} ساعة) — ${fac?.name||''}${daysToDeduct>0?' | استقطاع '+daysToDeduct+' يوم اعتيادي':''}`, 'blue');
 }
 
+// ==================== WHATSAPP BACKUP ====================
+let _waBackupAction = null; // callback after wa dialog
+
+function saveWaPhone() {
+  const phone = document.getElementById('wa-phone')?.value?.trim();
+  if (phone) localStorage.setItem('wa_backup_phone', phone);
+}
+
+function loadWaPhone() {
+  const saved = localStorage.getItem('wa_backup_phone') || '';
+  const el = document.getElementById('wa-phone');
+  if (el) el.value = saved;
+}
+
+function getSavedWaPhone() {
+  return localStorage.getItem('wa_backup_phone') || '';
+}
+
+function generateDbBlob() {
+  const exportData = {
+    version: 1,
+    exportDate: new Date().toISOString(),
+    exportDateAr: new Date().toLocaleDateString('ar-IQ',{weekday:'long',year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'}),
+    systemName: 'نظام إجازات الموظفين',
+    faculty, leaves,
+    stats: {
+      totalFaculty: faculty.length,
+      totalLeaves: leaves.filter(l=>l.type!=='cum-add').length,
+      totalDays: leaves.filter(l=>l.type!=='cum-add').reduce((s,l)=>s+l.days,0)
+    }
+  };
+  return new Blob([JSON.stringify(exportData,null,2)],{type:'application/json;charset=utf-8;'});
+}
+
+async function shareViaWhatsapp() {
+  const phone = document.getElementById('wa-phone')?.value?.trim() || getSavedWaPhone();
+  if (!phone) { showToast('⚠️ الرجاء إدخال رقم واتس اب أولاً', 'orange'); return; }
+  // تنزيل الملف
+  const blob = generateDbBlob();
+  const filename = `نظام_الاجازات_نسخة_احتياطية_${new Date().toISOString().split('T')[0]}.json`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  await dbSetSetting('lastExportDate', new Date().toLocaleDateString('ar-IQ',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'}));
+  // فتح واتس اب
+  setTimeout(() => {
+    const msg = encodeURIComponent(`مرحباً، إليك نسخة احتياطية من نظام إجازات الموظفين بتاريخ ${new Date().toLocaleDateString('ar-IQ')} - الرجاء الاحتفاظ بالملف المُرفق.`);
+    window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+  }, 800);
+  showToast('✅ جارٍ فتح واتس اب — يرجى إرسال الملف المُنزَّل يدوياً', 'green');
+  await logActivity('📱 مشاركة قاعدة البيانات عبر واتس اب', 'green');
+  setTimeout(renderDbInfo, 600);
+}
+
+function openWaBackupDialog(action) {
+  _waBackupAction = action;
+  const phone = getSavedWaPhone();
+  if (!phone) {
+    // لا يوجد رقم محفوظ → نفّذ الإجراء مباشرة
+    if (_waBackupAction) { _waBackupAction(); _waBackupAction = null; }
+    return;
+  }
+  openModal('modal-wa-backup');
+}
+
+async function confirmWaBackupAndProceed() {
+  closeModal('modal-wa-backup');
+  // تنزيل وفتح واتس اب
+  const phone = getSavedWaPhone();
+  if (phone) {
+    const blob = generateDbBlob();
+    const filename = `نظام_الاجازات_نسخة_احتياطية_${new Date().toISOString().split('T')[0]}.json`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    await dbSetSetting('lastExportDate', new Date().toLocaleDateString('ar-IQ',{year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'}));
+    setTimeout(() => {
+      const msg = encodeURIComponent(`نسخة احتياطية من نظام إجازات الموظفين - ${new Date().toLocaleDateString('ar-IQ')}`);
+      window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+    }, 600);
+  }
+  setTimeout(() => {
+    if (_waBackupAction) { _waBackupAction(); _waBackupAction = null; }
+  }, 800);
+}
+
+function skipWaBackupAndProceed() {
+  closeModal('modal-wa-backup');
+  if (_waBackupAction) { _waBackupAction(); _waBackupAction = null; }
+}
+
 // ==================== DISABLE DEVTOOLS SHORTCUTS ====================
 (function() {
   // Block right-click context menu
@@ -3843,6 +4122,25 @@ async function saveHourlyLeave() {
 
 <script>
 let deferredPrompt = null;
+
+// إظهار تنبيه مشاركة الواتس اب عند إغلاق/تحديث الصفحة
+window.addEventListener('beforeunload', (e) => {
+  const phone = localStorage.getItem('wa_backup_phone') || '';
+  if (phone && typeof currentUser !== 'undefined' && currentUser) {
+    e.preventDefault();
+    e.returnValue = 'هل تريد مشاركة نسخة احتياطية قبل المغادرة؟';
+    // نحاول تنزيل نسخة في الخلفية
+    try {
+      const exportData = { version:1, exportDate:new Date().toISOString(), systemName:'نظام إجازات الموظفين', faculty, leaves };
+      const blob = new Blob([JSON.stringify(exportData,null,2)],{type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'نظام_الاجازات_نسخة_احتياطية_auto.json';
+      a.click();
+    } catch(_) {}
+  }
+});
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(reg => {
