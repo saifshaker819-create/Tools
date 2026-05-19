@@ -840,13 +840,6 @@
             <label class="form-label">رصيد مرضي تراكمي أولي (أيام)</label>
             <input class="form-input" id="f-sick-cumulative" type="number" min="0" value="0" placeholder="0">
           </div>
-          <div class="form-group">
-            <label class="form-label">حالة الموظف</label>
-            <select class="form-select" id="f-status" onchange="onFacultyStatusChange()">
-              <option value="active">مستمر ✅</option>
-              <option value="seconded">منسب 🔄</option>
-            </select>
-          </div>
         </div>
 
         <!-- تحذير منسب -->
@@ -870,9 +863,17 @@
           </div>
         </div>
 
-        <div style="display:flex;gap:12px;margin-top:8px;">
-          <button class="btn btn-primary" style="padding:13px 32px;font-size:15px;" onclick="saveFaculty()">💾 حفظ البيانات</button>
-          <button class="btn btn-outline" style="padding:13px 24px;" onclick="cancelAddFaculty()">إلغاء</button>
+        <!-- حالة الموظف + أزرار الحفظ والإلغاء في صف واحد -->
+        <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:4px;">
+          <div style="display:flex;flex-direction:column;gap:6px;min-width:160px;">
+            <label class="form-label" style="margin-bottom:0;">حالة الموظف</label>
+            <select class="form-select" id="f-status" onchange="onFacultyStatusChange()">
+              <option value="active">مستمر ✅</option>
+              <option value="seconded">منسب 🔄</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" style="padding:12px 28px;font-size:15px;height:46px;" onclick="saveFaculty()">💾 حفظ البيانات</button>
+          <button class="btn btn-outline" style="padding:12px 22px;height:46px;" onclick="cancelAddFaculty()">إلغاء</button>
         </div>
       </div>
     </div>
@@ -1789,7 +1790,6 @@ function getBalance(facultyId, year) {
   if (fac.status === 'seconded') {
     return {normal:0, sick:0, normalUsed:0, sickUsed:0, normalDays:0, sickCumBalance:0, hourlyAccumulated:0};
   }
-  const nd = getNormalDays(facultyId);
   const fl = leaves.filter(l=>l.facultyId===facultyId && l.year===year);
   const allLeaves = leaves.filter(l=>l.facultyId===facultyId);
 
@@ -1803,17 +1803,21 @@ function getBalance(facultyId, year) {
   const sickUsed      = fl.filter(l=>l.type==='sick'||l.type==='half').reduce((s,l)=>s+l.days,0);
   const sickManualAdd = fl.filter(l=>l.type==='manual-sick-add').reduce((s,l)=>s+l.days,0);
   const sickManualSub = fl.filter(l=>l.type==='manual-sick-sub').reduce((s,l)=>s+l.days,0);
-  // مرضي تراكمي: الأولي + أي إضافات يدوية
+  // مرضي تراكمي
   const sickCumInitial = fac.initialSickCumulative || 0;
   const sickCumUsed    = allLeaves.filter(l=>l.type==='sick-cum-deduct').reduce((s,l)=>s+l.days,0);
   const sickCumBalance = Math.max(0, sickCumInitial - sickCumUsed);
 
+  // الموظف المُحوَّل من منسب→مستمر: رصيده الاعتيادي الأساسي = 0
+  // أيامه تأتي فقط من سجل الاستثناء (exceptionAdd) وليس من nd الثابت (36/15)
+  const isActivated = !!fac.activationDate; // سبق أن كان منسباً
+  const nd = isActivated ? 0 : getNormalDays(facultyId);
+
   const normalBalance = nd + exceptionAdd - normalUsed + normalRefund - hourlyDeductAll;
   const sickBalance   = SICK_DAYS + sickManualAdd - sickManualSub - sickUsed;
 
-  // الساعات الزمنية المتراكمة (من كل السنوات) لاحتساب الاستقطاع القادم
+  // الساعات الزمنية المتراكمة
   const totalHours = allLeaves.filter(l=>l.type==='hourly').reduce((s,l)=>s+(l.hours||0),0);
-  const hourlyAccumulated = totalHours; // الإجمالي التراكمي للساعات
 
   return {
     normal:     normalBalance,
@@ -1822,7 +1826,7 @@ function getBalance(facultyId, year) {
     sickUsed,
     normalDays: nd + exceptionAdd,
     sickCumBalance,
-    hourlyAccumulated,
+    hourlyAccumulated: totalHours,
     totalHoursAllTime: totalHours,
   };
 }
@@ -1921,6 +1925,7 @@ function renderProfile(id) {
   const selectedYear = profileYear || cy;
   const bal = getBalance(id, selectedYear);
   const cum = getCumBalance(id);
+  // sickCumBalance مُدرج داخل bal مباشرة من getBalance()
   const fLeaves = profileYear
     ? leaves.filter(l=>l.facultyId===id && l.year===profileYear).sort((a,b)=>b.id-a.id)
     : leaves.filter(l=>l.facultyId===id).sort((a,b)=>b.id-a.id);
@@ -1993,6 +1998,12 @@ function renderProfile(id) {
         <div class="leave-block-val" style="color:var(--red);">${bal.sick} <span style="font-size:15px;font-weight:500;">يوم متبقي</span></div>
         <div class="leave-block-sub">مستخدم: ${bal.sickUsed} من ${SICK_DAYS} يوم</div>
         <div class="progress-bar-wrap"><div class="progress-bar pb-red" style="width:${pctS}%"></div></div>
+      </div>
+      <div class="leave-block" style="background:linear-gradient(135deg,rgba(220,38,38,0.07),rgba(185,28,28,0.04));border:1px solid rgba(220,38,38,0.22);">
+        <div class="leave-block-title" style="color:#b91c1c;">🏥 المرضية التراكمية</div>
+        <div class="leave-block-val" style="color:#dc2626;">${bal.sickCumBalance} <span style="font-size:15px;font-weight:500;">يوم</span></div>
+        <div class="leave-block-sub">الرصيد المرضي المتراكم من السنوات السابقة</div>
+        <div class="progress-bar-wrap"><div class="progress-bar" style="background:linear-gradient(90deg,#dc2626,#b91c1c);width:${Math.min(100, bal.sickCumBalance > 0 ? Math.min(100, bal.sickCumBalance) : 0)}%"></div></div>
       </div>
       <div class="leave-block" style="background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(249,115,22,0.05));border:1px dashed rgba(245,158,11,0.4);">
         <div class="leave-block-title">⚡ إغلاق السنة</div>
